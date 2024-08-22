@@ -20,6 +20,14 @@ class GetProcessMem
 
   RUNS_ON_WINDOWS = Gem.win_platform?
 
+  def self.preferred_pss?
+    @preferred_pss ||= false
+  end
+
+  def self.preferred_pss=(value)
+    @preferred_pss = value
+  end
+
   if RUNS_ON_WINDOWS
     begin
       require "sys/proctable"
@@ -46,6 +54,7 @@ class GetProcessMem
   end
 
   def initialize(pid = Process.pid)
+    @process_smaps_rollup_file = Pathname.new "/proc/#{pid}/smaps_rollup"
     @status_file = Pathname.new "/proc/#{pid}/status"
     @process_file = Pathname.new "/proc/#{pid}/smaps"
     @pid = Integer(pid)
@@ -56,8 +65,13 @@ class GetProcessMem
     @linux
   end
 
+  def smaps_rollup_available?
+    @process_smaps_rollup_file.exist?
+  end
+
   def bytes
-    memory = linux_status_memory if linux?
+    memory = linux_pss_memory if self.class.preferred_pss? && smaps_rollup_available?
+    memory ||= linux_status_memory if linux?
     memory ||= darwin_memory if RUNS_ON_DARWIN
     memory ||= ps_memory
     memory
@@ -103,6 +117,16 @@ class GetProcessMem
       end
       sum
     end
+  rescue Errno::EACCES
+    0
+  end
+
+  def linux_pss_memory(file = @process_smaps_rollup_file)
+    line = file.each_line.select { |line| line.match(/^Pss/) }.first
+    return if line.nil?
+    return unless (_name, value, unit = line.split).length == 3
+
+    CONVERSION[unit.downcase!] * value.to_i
   rescue Errno::EACCES
     0
   end
