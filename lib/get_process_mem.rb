@@ -21,7 +21,9 @@ class GetProcessMem
   RUNS_ON_WINDOWS = Gem.win_platform?
 
   def self.preferred_pss?
-    @preferred_pss ||= false
+    return @preferred_pss unless @preferred_pss.nil?
+
+    @preferred_pss
   end
 
   def self.preferred_pss=(value)
