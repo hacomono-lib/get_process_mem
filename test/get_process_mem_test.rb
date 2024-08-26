@@ -67,4 +67,10 @@ class GetProcessMemTest < Test::Unit::TestCase
     assert_in_delta 1024.0, @mem.mb(bytes), delta
     assert_in_delta 1.0, @mem.gb(bytes), delta
   end
+
+  def test_linux_smaps_rollup
+    delta = 1
+    bytes = @mem.linux_pss_memory(fixture_path("linux-bash-smaps_rollup"))
+    assert_in_delta BigDecimal("11840512.0"), bytes, delta
+  end
 end
